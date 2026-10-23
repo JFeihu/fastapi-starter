@@ -1,0 +1,11 @@
+# 统一换行符：源码用 LF，避免 Windows 上 CRLF 进容器导致脚本跑不起来
+* text=auto eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.pdf binary
