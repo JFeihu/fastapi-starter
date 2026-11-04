@@ -11,9 +11,13 @@ import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.api.deps import DBSession
@@ -44,10 +48,26 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description="FastAPI 求职练手项目：异步 SQLAlchemy + JWT + 统一异常 + pytest",
         lifespan=lifespan,
-        docs_url="/docs",
-        redoc_url="/redoc",
+        # /docs 和 /redoc 默认从 cdn.jsdelivr.net 加载 JS/CSS，国内常被墙，
+        # 这里关掉默认的，改用本地静态资源自己渲染（见下面 custom_docs）
+        docs_url=None,
+        redoc_url=None,
         openapi_url="/openapi.json",
     )
+
+    # ---- 静态资源：Swagger UI 的 JS/CSS 放在 app/static/swagger/ ----
+    static_dir = Path(__file__).parent / "static"
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+    @app.get("/docs", include_in_schema=False)
+    async def custom_docs() -> HTMLResponse:
+        """自托管版 Swagger UI：不依赖外网 CDN，内网/离线环境也能用。"""
+        return get_swagger_ui_html(
+            openapi_url=app.openapi_url or "/openapi.json",
+            title=f"{settings.app_name} - 接口文档",
+            swagger_js_url="/static/swagger/swagger-ui-bundle.js",
+            swagger_css_url="/static/swagger/swagger-ui.css",
+        )
 
     app.add_middleware(
         CORSMiddleware,
