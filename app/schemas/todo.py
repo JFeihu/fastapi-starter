@@ -29,3 +29,9 @@ class TodoRead(BaseModel):
     owner_id: int
     created_at: datetime
     updated_at: datetime
+
+class TodoStats(BaseModel):
+    total: int
+    done: int
+    pending: int
+    completion_rate: float
