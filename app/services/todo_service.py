@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import NotFoundError
-from app.db.models import Todo
+from app.db.models import Todo, Tag
+from app.schemas import tag
 from app.schemas.todo import TodoCreate, TodoUpdate
 
 
@@ -32,12 +34,16 @@ async def list_todos(
         .order_by(Todo.id.desc())
         .offset((page - 1) * size)
         .limit(size)
+        .options(selectinload(Todo.tags))
     )
     return list(result.scalars().all()), int(total or 0)
 
 
 async def get_owned_todo(db: AsyncSession, todo_id: int, owner_id: int) -> Todo:
-    todo = await db.get(Todo, todo_id)
+    result = await db.execute(
+        select(Todo).where(Todo.id == todo_id, Todo.owner_id == owner_id).options(selectinload(Todo.tags))
+    )
+    todo = result.scalar_one_or_none()
     # 别人的资源统一返回 404，不暴露"存在但无权访问"
     if todo is None or todo.owner_id != owner_id:
         raise NotFoundError("任务不存在")
@@ -45,10 +51,25 @@ async def get_owned_todo(db: AsyncSession, todo_id: int, owner_id: int) -> Todo:
 
 
 async def create_todo(db: AsyncSession, payload: TodoCreate, owner_id: int) -> Todo:
-    todo = Todo(**payload.model_dump(), owner_id=owner_id)
+    tags: list[Tag] = []
+    if payload.tag_ids:
+        result = await db.execute(
+            select(Tag).where(Tag.id.in_(payload.tag_ids), Tag.owner_id == owner_id)
+        )
+        tags = list(result.scalars().all())
+        if len(tags) != len(set(payload.tag_ids)):
+            raise  NotFoundError("标签不存在")  # 别人的标签
+    todo = Todo(
+        title=payload.title,
+        description=payload.description,
+        done= payload.done,
+        owner_id=owner_id,
+        tags=tags
+    )
+    # todo = Todo(title=..., description=)
     db.add(todo)
     await db.flush()
-    await db.refresh(todo)
+    await db.refresh(todo, ["id", "created_at", "updated_at", "tags"])
     return todo
 
 
@@ -57,7 +78,7 @@ async def update_todo(db: AsyncSession, todo: Todo, payload: TodoUpdate) -> Todo
     for field, value in data.items():
         setattr(todo, field, value)
     await db.flush()
-    await db.refresh(todo)
+    await db.refresh(todo, ["id", "created_at", "updated_at", "tags"])
     return todo
 
 

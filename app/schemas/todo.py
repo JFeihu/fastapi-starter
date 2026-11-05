@@ -4,11 +4,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.tag import TagRead
+
 
 class TodoCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200, examples=["看完 FastAPI 依赖注入"])
     description: str | None = Field(default=None, max_length=2000)
     done: bool = False
+    tag_ids: list[int] = Field(default_factory=list, max_length=10)   # 最多挂10个
 
 
 class TodoUpdate(BaseModel):
@@ -29,6 +32,7 @@ class TodoRead(BaseModel):
     owner_id: int
     created_at: datetime
     updated_at: datetime
+    tags: list[TagRead] = Field(default_factory=list)  # 嵌套返回
 
 
 class TodoStats(BaseModel):
