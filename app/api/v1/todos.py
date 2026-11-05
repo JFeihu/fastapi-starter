@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
 
-from app.api.deps import CurrentUser, DBSession, PageParams
+from app.api.deps import CurrentUser, DBSession, OwnedTodo, PageParams
 from app.schemas.common import Page
 from app.schemas.todo import TodoCreate, TodoRead, TodoStats, TodoUpdate
 from app.services import todo_service
@@ -51,16 +51,12 @@ async def get_todo_stats(db: DBSession, current_user: CurrentUser) -> TodoStats:
 
 
 @router.get("/{todo_id}", response_model=TodoRead, summary="任务详情")
-async def get_todo(todo_id: int, db: DBSession, current_user: CurrentUser) -> TodoRead:
-    todo = await todo_service.get_owned_todo(db, todo_id, current_user.id)
+async def get_todo(todo: OwnedTodo) -> TodoRead:
     return TodoRead.model_validate(todo)
 
 
 @router.patch("/{todo_id}", response_model=TodoRead, summary="局部更新任务")
-async def update_todo(
-    todo_id: int, payload: TodoUpdate, db: DBSession, current_user: CurrentUser
-) -> TodoRead:
-    todo = await todo_service.get_owned_todo(db, todo_id, current_user.id)
+async def update_todo(todo: OwnedTodo, payload: TodoUpdate, db: DBSession) -> TodoRead:
     todo = await todo_service.update_todo(db, todo, payload)
     return TodoRead.model_validate(todo)
 
@@ -70,7 +66,6 @@ async def update_todo(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="删除任务",
 )
-async def delete_todo(todo_id: int, db: DBSession, current_user: CurrentUser) -> Response:
-    todo = await todo_service.get_owned_todo(db, todo_id, current_user.id)
+async def delete_todo(todo: OwnedTodo, db: DBSession) -> Response:
     await todo_service.delete_todo(db, todo)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

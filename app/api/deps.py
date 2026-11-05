@@ -15,9 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import security
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedError
-from app.db.models import User
+from app.db.models import Todo, User
 from app.db.session import get_db
-from app.services import user_service
+from app.services import todo_service, user_service
 
 # tokenUrl 决定 Swagger UI 上「Authorize」按钮请求哪个地址
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.api_v1_prefix}/auth/login")
@@ -53,5 +53,13 @@ class Pagination:
     def offset(self) -> int:
         return (self.page - 1) * self.size
 
+
+async def get_owned_todo(todo_id: int, db: DBSession, current_user: CurrentUser) -> Todo:
+    """取任务 + 校验归属：拿不到就 404，拿到就注入"""
+
+    return await todo_service.get_owned_todo(db, todo_id, current_user.id)
+
+
+OwnedTodo = Annotated[Todo, Depends(get_owned_todo)]
 
 PageParams = Annotated[Pagination, Depends()]
