@@ -30,6 +30,7 @@ class TodoRead(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+
 class TodoStats(BaseModel):
     total: int
     done: int

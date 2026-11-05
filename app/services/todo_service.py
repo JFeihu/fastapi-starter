@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import case,func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
@@ -64,6 +64,7 @@ async def update_todo(db: AsyncSession, todo: Todo, payload: TodoUpdate) -> Todo
 async def delete_todo(db: AsyncSession, todo: Todo) -> None:
     await db.delete(todo)
     await db.flush()
+
 
 # 获取 项目完成状态的数量
 async def get_stats(db: AsyncSession, *, owner_id: int) -> dict:

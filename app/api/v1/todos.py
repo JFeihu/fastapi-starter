@@ -8,7 +8,7 @@ from fastapi import APIRouter, Query, Response, status
 
 from app.api.deps import CurrentUser, DBSession, PageParams
 from app.schemas.common import Page
-from app.schemas.todo import TodoCreate, TodoRead, TodoUpdate, TodoStats
+from app.schemas.todo import TodoCreate, TodoRead, TodoStats, TodoUpdate
 from app.services import todo_service
 
 router = APIRouter(prefix="/todos", tags=["任务"])
@@ -74,4 +74,3 @@ async def delete_todo(todo_id: int, db: DBSession, current_user: CurrentUser) ->
     todo = await todo_service.get_owned_todo(db, todo_id, current_user.id)
     await todo_service.delete_todo(db, todo)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
-
