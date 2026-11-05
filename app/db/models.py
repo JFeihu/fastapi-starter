@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean,Column, ForeignKey, String, Table, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -37,9 +37,7 @@ class Todo(Base, TimestampMixin):
         ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
     )
     owner: Mapped[User] = relationship(back_populates="todos")
-    tags: Mapped[list[Tag]] = relationship(
-        secondary="todo_tags",
-        back_populates="todos")
+    tags: Mapped[list[Tag]] = relationship(secondary="todo_tags", back_populates="todos")
 
     def __repr__(self) -> str:
         return f"<Todo id={self.id} title={self.title!r} done={self.done}>"
@@ -56,14 +54,12 @@ class Tag(Base, TimestampMixin):
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )  # 外键：关联到 users 表的 id， 并设置级联删除和索引
-    todos: Mapped[list[Todo]] = relationship(
-        secondary="todo_tags",
-        back_populates="tags")
+    todos: Mapped[list[Todo]] = relationship(secondary="todo_tags", back_populates="tags")
+
 
 todo_tags = Table(
     "todo_tags",
     Base.metadata,
     Column("todo_id", ForeignKey("todos.id", ondelete="CASCADE"), primary_key=True),
-    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True)
+    Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
-

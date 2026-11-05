@@ -11,7 +11,7 @@ class TodoCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200, examples=["看完 FastAPI 依赖注入"])
     description: str | None = Field(default=None, max_length=2000)
     done: bool = False
-    tag_ids: list[int] = Field(default_factory=list, max_length=10)   # 最多挂10个
+    tag_ids: list[int] = Field(default_factory=list, max_length=10)  # 最多挂10个
 
 
 class TodoUpdate(BaseModel):
@@ -40,3 +40,18 @@ class TodoStats(BaseModel):
     done: int
     pending: int
     completion_rate: float
+
+
+class BulkCreateRequest(BaseModel):
+    items: list[TodoCreate] = Field(min_length=1, max_length=50)
+    atomic: bool = False
+
+
+class BulkItemError(BaseModel):
+    index: int
+    error: str
+
+
+class BulkCreateResult(BaseModel):
+    created: list[TodoRead]
+    failed: list[BulkItemError]

@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import pytest
 from httpx import AsyncClient
 from sqlalchemy import event
 
@@ -22,9 +21,7 @@ async def _tag(client: AsyncClient, headers: dict[str, str], name: str) -> int:
     return resp.json()["id"]
 
 
-async def test_create_todo_with_tags(
-    client: AsyncClient, auth_headers: dict[str, str]
-) -> None:
+async def test_create_todo_with_tags(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     work = await _tag(client, auth_headers, "工作")
     urgent = await _tag(client, auth_headers, "紧急")
 
@@ -59,23 +56,15 @@ async def test_cannot_attach_others_tag(
     assert resp.status_code == 404
 
 
-async def test_unknown_tag_returns_404(
-    client: AsyncClient, auth_headers: dict[str, str]
-) -> None:
-    resp = await client.post(
-        TODOS, json={"title": "x", "tag_ids": [99999]}, headers=auth_headers
-    )
+async def test_unknown_tag_returns_404(client: AsyncClient, auth_headers: dict[str, str]) -> None:
+    resp = await client.post(TODOS, json={"title": "x", "tag_ids": [99999]}, headers=auth_headers)
 
     assert resp.status_code == 404
 
 
-async def test_list_todos_includes_tags(
-    client: AsyncClient, auth_headers: dict[str, str]
-) -> None:
+async def test_list_todos_includes_tags(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     tag_id = await _tag(client, auth_headers, "工作")
-    await client.post(
-        TODOS, json={"title": "带标签", "tag_ids": [tag_id]}, headers=auth_headers
-    )
+    await client.post(TODOS, json={"title": "带标签", "tag_ids": [tag_id]}, headers=auth_headers)
 
     resp = await client.get(TODOS, headers=auth_headers)
 
@@ -84,9 +73,7 @@ async def test_list_todos_includes_tags(
     assert [tag["name"] for tag in items[0]["tags"]] == ["工作"]
 
 
-async def test_detail_includes_tags(
-    client: AsyncClient, auth_headers: dict[str, str]
-) -> None:
+async def test_detail_includes_tags(client: AsyncClient, auth_headers: dict[str, str]) -> None:
     tag_id = await _tag(client, auth_headers, "工作")
     created = await client.post(
         TODOS, json={"title": "详情", "tag_ids": [tag_id]}, headers=auth_headers
@@ -109,9 +96,7 @@ async def test_list_todos_avoids_n_plus_1(
     """
     tag_id = await _tag(client, auth_headers, "工作")
     for i in range(5):
-        await client.post(
-            TODOS, json={"title": f"t{i}", "tag_ids": [tag_id]}, headers=auth_headers
-        )
+        await client.post(TODOS, json={"title": f"t{i}", "tag_ids": [tag_id]}, headers=auth_headers)
 
     statements: list[str] = []
 
@@ -128,6 +113,4 @@ async def test_list_todos_avoids_n_plus_1(
 
     assert resp.status_code == 200
     selects = [s for s in statements if s.lstrip().upper().startswith("SELECT")]
-    assert len(selects) <= 5, (
-        f"疑似 N+1：{len(selects)} 条 SELECT\n" + "\n".join(selects)
-    )
+    assert len(selects) <= 5, f"疑似 N+1：{len(selects)} 条 SELECT\n" + "\n".join(selects)

@@ -8,7 +8,14 @@ from fastapi import APIRouter, Query, Response, status
 
 from app.api.deps import CurrentUser, DBSession, OwnedTodo, PageParams
 from app.schemas.common import Page
-from app.schemas.todo import TodoCreate, TodoRead, TodoStats, TodoUpdate
+from app.schemas.todo import (
+    BulkCreateRequest,
+    BulkCreateResult,
+    TodoCreate,
+    TodoRead,
+    TodoStats,
+    TodoUpdate,
+)
 from app.services import todo_service
 
 router = APIRouter(prefix="/todos", tags=["任务"])
@@ -48,6 +55,19 @@ async def list_todos(
 async def get_todo_stats(db: DBSession, current_user: CurrentUser) -> TodoStats:
     data = await todo_service.get_stats(db, owner_id=current_user.id)
     return TodoStats(**data)
+
+
+@router.post("/bulk", response_model=BulkCreateResult, status_code=201, summary="批量创建任务")
+async def bulk_create_todos(
+    payload: BulkCreateRequest, db: DBSession, current_user: CurrentUser
+) -> BulkCreateResult:
+    created, failed = await todo_service.bulk_create(
+        db, payload.items, owner_id=current_user.id, atomic=payload.atomic
+    )
+    return BulkCreateResult(
+        created=[TodoRead.model_validate(todo) for todo in created],
+        failed=failed,
+    )
 
 
 @router.get("/{todo_id}", response_model=TodoRead, summary="任务详情")

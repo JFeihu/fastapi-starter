@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from sqlalchemy import case, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import NotFoundError
-from app.db.models import Todo, Tag
-from app.schemas import tag
+from app.db.models import Tag, Todo
 from app.schemas.todo import TodoCreate, TodoUpdate
 
 
@@ -41,7 +41,9 @@ async def list_todos(
 
 async def get_owned_todo(db: AsyncSession, todo_id: int, owner_id: int) -> Todo:
     result = await db.execute(
-        select(Todo).where(Todo.id == todo_id, Todo.owner_id == owner_id).options(selectinload(Todo.tags))
+        select(Todo)
+        .where(Todo.id == todo_id, Todo.owner_id == owner_id)
+        .options(selectinload(Todo.tags))
     )
     todo = result.scalar_one_or_none()
     # 别人的资源统一返回 404，不暴露"存在但无权访问"
@@ -58,13 +60,13 @@ async def create_todo(db: AsyncSession, payload: TodoCreate, owner_id: int) -> T
         )
         tags = list(result.scalars().all())
         if len(tags) != len(set(payload.tag_ids)):
-            raise  NotFoundError("标签不存在")  # 别人的标签
+            raise NotFoundError("标签不存在")  # 别人的标签
     todo = Todo(
         title=payload.title,
         description=payload.description,
-        done= payload.done,
+        done=payload.done,
         owner_id=owner_id,
-        tags=tags
+        tags=tags,
     )
     # todo = Todo(title=..., description=)
     db.add(todo)
@@ -104,3 +106,36 @@ async def get_stats(db: AsyncSession, *, owner_id: int) -> dict:
         "pending": total - done,
         "completion_rate": round(done / total, 4) if total else 0.0,
     }
+
+
+async def bulk_create(
+    db: AsyncSession,
+    items: list[TodoCreate],
+    *,
+    owner_id: int,
+    atomic: bool,
+) -> tuple[list[Todo], list[dict]]:
+    """批量创建：atomic=True 全成功或全失败；False 用 savepoint 保住成功的。
+
+    非原子模式下，单条失败只回滚这一条（savepoint），并记录原因。
+    注意捕获的是「业务异常 + 数据库约束异常」两类：
+      - NotFoundError  : 标签不存在 / 不是自己的
+      - IntegrityError : 唯一约束、外键约束等（不捕获就会变成 500）
+    """
+    created: list[Todo] = []
+    failed: list[dict] = []
+
+    for index, item in enumerate(items):
+        try:
+            if atomic:
+                created.append(await create_todo(db, item, owner_id))
+            else:
+                async with db.begin_nested():  # savepoint：这条失败只回滚这条
+                    todo = await create_todo(db, item, owner_id)
+                created.append(todo)
+        except (NotFoundError, IntegrityError) as exc:
+            if atomic:
+                raise
+            failed.append({"index": index, "error": str(exc)})
+
+    return created, failed
