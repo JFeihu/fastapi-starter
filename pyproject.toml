@@ -45,3 +45,16 @@ ignore = ["B008"]  # FastAPI 的 Depends() 默认参数是推荐写法
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-q"
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.1.0",
+]
+
+[tool.coverage.run]
+# SQLAlchemy async 内部用 greenlet 切换，默认只追踪 thread 会漏掉 await 之后的代码
+concurrency = ["greenlet", "thread"]
+source = ["app"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
