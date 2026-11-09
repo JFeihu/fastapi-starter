@@ -21,7 +21,7 @@ from pathlib import Path
 DB_PATH = Path(__file__).resolve().parent.parent / "app.db"
 TOTAL_TODOS = 100_000
 RANDOM_SEED = 42
-DEV_PASSWORD = "Password123"   # 种子用户的密码（仅开发用）
+DEV_PASSWORD = "Password123"  # 种子用户的密码（仅开发用）
 
 TITLE_POOL = [
     "修复登录 bug",
@@ -83,7 +83,6 @@ def seed(conn: sqlite3.Connection) -> None:
         ],
     )
     print(f"种子用户密码都是: {DEV_PASSWORD}")
-
 
     # --- 标签：alice 20 个，bob 10 个 ---
     tag_rows = []

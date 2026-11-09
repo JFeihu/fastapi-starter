@@ -20,6 +20,9 @@ class User(Base, TimestampMixin):
     todos: Mapped[list[Todo]] = relationship(
         back_populates="owner", cascade="all, delete-orphan", passive_deletes=True
     )
+    role: Mapped[str] = mapped_column(
+        String(16), server_default="user", nullable=False, default="user"
+    )
 
     def __repr__(self) -> str:  # 调试时打印对象更友好
         return f"<User id={self.id} username={self.username!r}>"
@@ -53,7 +56,7 @@ class Tag(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)  # 主键
     name: Mapped[str] = mapped_column(String(32), nullable=False)  # 标签名
     owner_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), index=True
+        ForeignKey("users.id", ondelete="CASCADE")
     )  # 外键：关联到 users 表的 id， 并设置级联删除和索引
     todos: Mapped[list[Todo]] = relationship(secondary="todo_tags", back_populates="tags")
 
@@ -63,4 +66,5 @@ todo_tags = Table(
     Base.metadata,
     Column("todo_id", ForeignKey("todos.id", ondelete="CASCADE"), primary_key=True),
     Column("tag_id", ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
+    Index("ix_todo_tags_tag_id", "tag_id"),
 )
