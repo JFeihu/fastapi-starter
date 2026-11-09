@@ -15,3 +15,8 @@ build/
 .idea/
 .vscode/
 .DS_Store
+
+# 临时/备份文件（调试用，不进仓库）
+*.bak
+_*.py
+_*.txt
