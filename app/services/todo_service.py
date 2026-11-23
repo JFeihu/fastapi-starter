@@ -122,17 +122,43 @@ async def bulk_create(
       - NotFoundError  : 标签不存在 / 不是自己的
       - IntegrityError : 唯一约束、外键约束等（不捕获就会变成 500）
     """
+    # ---------- 原子模式：一次插入 ----------
+
+    if atomic:
+        # 1) 先把所有 tag_ids 收集起来，**一次查询**全部标签
+        all_tag_ids = {tid for item in items for tid in item.tag_ids}
+        tags_map: dict[int, Tag] = {}
+        if all_tag_ids:
+            rows = (await db.execute(
+                select(Tag).where(Tag.id.in_(all_tag_ids), Tag.owner_id == owner_id)
+            )).scalars().all()
+            tags_map = {t.id: t for t in rows}
+            if len(tags_map) != len(all_tag_ids):
+                raise NotFoundError("标签不存在")
+
+        # 2) 造对象（tags 直接从 map 里取，不再查库）
+        todos = [
+            Todo(title=item.title, description=item.description, done=item.done,
+                 owner_id=owner_id, tags=[tags_map[i] for i in item.tag_ids])
+            for item in items
+        ]
+
+        # 3) 一次加入 + 一次 flush
+        db.add_all(todos)
+        await db.flush()
+
+        # 4) 回填 id/时间戳/tags（保留 tags）
+        return todos, []
+
+    # ---------- 非原子模式：逐条 + savepoint（保持原样）----------
     created: list[Todo] = []
     failed: list[dict] = []
 
     for index, item in enumerate(items):
         try:
-            if atomic:
-                created.append(await create_todo(db, item, owner_id))
-            else:
-                async with db.begin_nested():  # savepoint：这条失败只回滚这条
-                    todo = await create_todo(db, item, owner_id)
-                created.append(todo)
+            async with db.begin_nested():
+                todo = await create_todo(db, item, owner_id)
+            created.append(todo)
         except (NotFoundError, IntegrityError) as exc:
             if atomic:
                 raise
