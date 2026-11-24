@@ -6,9 +6,9 @@ import logging
 
 from httpx import AsyncClient
 
+from app.core.config import settings
 from app.core.logging import setup_logging
 from tests.conftest import TEST_PASSWORD, login_headers, register_user
-from app.core.config import settings
 
 
 async def test_register_success(client: AsyncClient) -> None:

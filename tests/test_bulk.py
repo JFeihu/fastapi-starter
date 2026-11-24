@@ -8,9 +8,6 @@
 from __future__ import annotations
 
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.db.session import get_db
 
 TODOS = "/api/v1/todos"
 BULK = f"{TODOS}/bulk"

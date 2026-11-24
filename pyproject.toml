@@ -14,15 +14,13 @@ dependencies = [
     "pyjwt>=2.9",
     "bcrypt>=4.2",
     "python-multipart>=0.0.9",
+    "pydantic[email]>=2.14.1",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=8.2",
-    "pytest-asyncio>=0.24",
-    "httpx>=0.27",
-    "ruff>=0.6",
-]
+# 预留：以后要发布给别人用时，可以在这里加 extra（如 "postgres"）。
+# 注意：extras 默认**不会**被 uv sync 安装，要 `uv sync --extra postgres`。
+dev-legacy = []
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -47,8 +45,15 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [dependency-groups]
+# ⚠️ uv sync 默认只装 main dependencies + 这个 dev 组。
+# 以前放在 [project.optional-dependencies].dev 里是**错的**（extra 不默认装），
+# 导致干净环境/CI 里没有 ruff、pytest-asyncio —— CI 一跑就红。
 dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.24",
     "pytest-cov>=7.1.0",
+    "httpx>=0.27",
+    "ruff>=0.6",
 ]
 
 [tool.coverage.run]

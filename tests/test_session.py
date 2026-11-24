@@ -8,10 +8,10 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_db, engine
+from app.db.session import engine, get_db
 
 
 async def test_get_db_commits(monkeypatch: pytest.MonkeyPatch) -> None:
