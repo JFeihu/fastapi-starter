@@ -33,10 +33,10 @@ async def test_get_db_commits(monkeypatch: pytest.MonkeyPatch) -> None:
     # 4.拿到生成器对象
     agen = get_db()
     # 5. 驱使它执行到 yield 处（此时把 session 交给业务代码）
-    await anext(agen)            # 拿到 yield 出去的 session
+    await anext(agen)  # 拿到 yield 出去的 session
     # 6. 继续驱使它往下走（因为我们在 yield 后没抛出异常，正常结束）
     # 走到 get_db 的结尾，会触发 await session.commit()
-    await anext(agen, None)      # 继续跑完 → commit 分支
+    await anext(agen, None)  # 继续跑完 → commit 分支
 
     # 7.断言
     assert calls["commit"] == 1
@@ -61,10 +61,11 @@ async def test_get_db_rolls_back(monkeypatch: pytest.MonkeyPatch) -> None:
     # 核心区别：向生成器内部抛出异常，模拟业务代码报错
     # get_db 内部的 try...except 会捕获这个异常，执行 rollback
     with pytest.raises(RuntimeError, match="boom"):
-        await agen.athrow(RuntimeError("boom"))   # 在 yield 处抛异常
+        await agen.athrow(RuntimeError("boom"))  # 在 yield 处抛异常
 
     assert calls["rollback"] == 1
     assert calls["commit"] == 0
+
 
 async def test_sqlite_foreign_keys_enabled() -> None:
     """SQLite 默认不校验外键，必须每个连接 PRAGMA 打开。

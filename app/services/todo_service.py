@@ -129,17 +129,28 @@ async def bulk_create(
         all_tag_ids = {tid for item in items for tid in item.tag_ids}
         tags_map: dict[int, Tag] = {}
         if all_tag_ids:
-            rows = (await db.execute(
-                select(Tag).where(Tag.id.in_(all_tag_ids), Tag.owner_id == owner_id)
-            )).scalars().all()
+            rows = (
+                (
+                    await db.execute(
+                        select(Tag).where(Tag.id.in_(all_tag_ids), Tag.owner_id == owner_id)
+                    )
+                )
+                .scalars()
+                .all()
+            )
             tags_map = {t.id: t for t in rows}
             if len(tags_map) != len(all_tag_ids):
                 raise NotFoundError("标签不存在")
 
         # 2) 造对象（tags 直接从 map 里取，不再查库）
         todos = [
-            Todo(title=item.title, description=item.description, done=item.done,
-                 owner_id=owner_id, tags=[tags_map[i] for i in item.tag_ids])
+            Todo(
+                title=item.title,
+                description=item.description,
+                done=item.done,
+                owner_id=owner_id,
+                tags=[tags_map[i] for i in item.tag_ids],
+            )
             for item in items
         ]
 

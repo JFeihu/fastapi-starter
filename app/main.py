@@ -50,7 +50,6 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
 
-
     register_docs(app)
 
     app.add_middleware(

@@ -1,0 +1,58 @@
+name: CI
+
+# 什么时候跑：push 到 main、以及对 main 发起的 PR
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 连续 push 只保留最后一次运行，省钱
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------- 代码风格 ----------
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 uv（带依赖缓存）
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: 安装依赖（严格按 uv.lock）
+        run: uv sync --frozen
+
+      - name: ruff check
+        run: uv run ruff check app tests
+
+      - name: ruff format --check
+        run: uv run ruff format --check app tests
+
+  # ---------- 测试 ----------
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # 一个版本挂了，其他版本继续跑完
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 uv + 指定 Python
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: ${{ matrix.python-version }}
+
+      - name: 安装依赖
+        run: uv sync --frozen
+
+      - name: pytest + 覆盖率
+        run: uv run pytest -q --cov=app --cov-report=term-missing
