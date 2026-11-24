@@ -63,8 +63,8 @@ async def test_get_db_rolls_back(monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(RuntimeError, match="boom"):
         await agen.athrow(RuntimeError("boom"))  # 在 yield 处抛异常
 
-    assert calls["rollback"] == 99
-    # assert calls["rollback"] == 1
+    # assert calls["rollback"] == 99
+    assert calls["rollback"] == 1
     assert calls["commit"] == 0
 
 
