@@ -8,6 +8,9 @@
 from __future__ import annotations
 
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.session import get_db
 
 TODOS = "/api/v1/todos"
 BULK = f"{TODOS}/bulk"
@@ -110,3 +113,25 @@ async def test_bulk_not_shadowed_by_id_route(
     resp = await client.post(BULK, json={"items": [{"title": "x"}]}, headers=auth_headers)
 
     assert resp.status_code == 201, f"路由顺序错了：{resp.status_code} {resp.text}"
+
+async def test_bulk_atomic_with_tags_success(
+    client: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    """原子 + 标签 + 成功：标签必须真的挂上（改动最容易漏的路径）。"""
+    tag_id = await _tag(client, auth_headers, "工作")
+
+    resp = await client.post(
+        BULK,
+        json={"items": [{"title": "带标签", "tag_ids": [tag_id]}]},
+        headers=auth_headers
+    )
+    
+    assert resp.status_code == 201, resp.text
+    created = resp.json()["created"]
+    assert len(created) == 1
+    assert [t["name"] for t in created[0]["tags"]] == ["工作"]
+
+    # 再查一次，确认关联表真的写进去了
+    detail = await client.get(f"{TODOS}/{created[0]["id"]}", headers=auth_headers)
+    assert [t["name"] for t in detail.json()["tags"]] == ["工作"]
+

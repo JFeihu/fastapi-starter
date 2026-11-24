@@ -49,7 +49,7 @@ async def get_db() -> AsyncIterator[AsyncSession]:
             raise
 
 
-async def init_models() -> None:
+async def init_models() -> None:    # pragma: no cover
     """开发期兜底建表；生产环境请用 alembic upgrade head。"""
     from app.db import models  # noqa: F401  确保模型已注册到 Base.metadata
     from app.db.base import Base
