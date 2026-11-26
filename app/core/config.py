@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     auto_create_tables: bool = True
     db_echo: bool = False
 
+    # Redis 连接串。容器里由 compose 注入 redis://redis:6379/0
+    redis_url: str = "redis://localhost:6379/0"
+
     secret_key: str = "dev-only-insecure-secret-key-please-change"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30

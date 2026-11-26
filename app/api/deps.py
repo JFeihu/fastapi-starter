@@ -6,15 +6,18 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Query
 from fastapi.security import OAuth2PasswordBearer
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import security
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedError
+from app.core.redis import get_client
 from app.db.models import Todo, User
 from app.db.session import get_db
 from app.services import todo_service, user_service
@@ -36,6 +39,11 @@ async def get_current_user(db: DBSession, token: TokenStr) -> User:
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def get_redis() -> AsyncIterator[Redis]:
+    """每次请求给同一个客户端（连接池内部复用 TCP 连接）。"""
+    yield get_client()
 
 
 class Pagination:
@@ -63,3 +71,5 @@ async def get_owned_todo(todo_id: int, db: DBSession, current_user: CurrentUser)
 OwnedTodo = Annotated[Todo, Depends(get_owned_todo)]
 
 PageParams = Annotated[Pagination, Depends()]
+
+RedisClient = Annotated[Redis, Depends(get_redis)]

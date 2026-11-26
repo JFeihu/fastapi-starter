@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Response, status
 
-from app.api.deps import CurrentUser, DBSession, OwnedTodo, PageParams
+from app.api.deps import CurrentUser, DBSession, OwnedTodo, PageParams, RedisClient
 from app.schemas.common import Page
 from app.schemas.todo import (
     BulkCreateRequest,
@@ -17,6 +17,7 @@ from app.schemas.todo import (
     TodoUpdate,
 )
 from app.services import todo_service
+from app.services.cache import cache_aside
 
 router = APIRouter(prefix="/todos", tags=["任务"])
 
@@ -52,9 +53,11 @@ async def list_todos(
 
 
 @router.get("/stats", response_model=TodoStats, summary="任务统计")
-async def get_todo_stats(db: DBSession, current_user: CurrentUser) -> TodoStats:
-    data = await todo_service.get_stats(db, owner_id=current_user.id)
-    return TodoStats(**data)
+async def get_todo_stats(db: DBSession, current_user: CurrentUser, redis: RedisClient) -> TodoStats:
+    key = f"todo:stats:{current_user.id}"
+    return await cache_aside(
+        redis, key, ttl=30, loader=lambda: todo_service.get_stats(db, owner_id=current_user.id)
+    )
 
 
 @router.post("/bulk", response_model=BulkCreateResult, status_code=201, summary="批量创建任务")

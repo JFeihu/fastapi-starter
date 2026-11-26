@@ -30,10 +30,11 @@ services:
       - "8000:8000"
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/app
-      SECRET_KEY: ${SECRET_KEY:-please-change-me-in-production}
+      SECRET_KEY: ${SECRET_KEY:-please-change-me-in-production-at-least-32-bytes}
       AUTO_CREATE_TABLES: "false"
       DEBUG: "false"
       CORS_ORIGINS: '["http://localhost:5173"]'
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy

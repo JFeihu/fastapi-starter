@@ -20,6 +20,7 @@ from app.core.docs import register_docs
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import setup_logging
 from app.core.middleware import register_middleware
+from app.core.redis import check_connection, close_client
 from app.db.session import engine, init_models
 
 logger = logging.getLogger(__name__)
@@ -32,8 +33,10 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         # 仅开发用；生产靠 alembic upgrade head，避免"代码改了表没改"
         await init_models()
     logger.info("%s 启动完成，环境 debug=%s", settings.app_name, settings.debug)
+    await check_connection()
     yield
     await engine.dispose()
+    await close_client()
     logger.info("资源已释放")
 
 

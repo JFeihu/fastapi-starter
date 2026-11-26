@@ -10,11 +10,14 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
+import fakeredis
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.core.redis import get_client
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -89,3 +92,12 @@ async def auth_headers(client: AsyncClient) -> dict[str, str]:
 async def other_headers(client: AsyncClient) -> dict[str, str]:
     await register_user(client, username="bob")
     return await login_headers(client, username="bob")
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def fake_redis() -> AsyncIterator[Redis]:
+    """所有测试都用 fakeredis，不依赖容器。"""
+    fake = fakeredis.FakeRedis(decode_responses=True)
+    app.dependency_overrides[get_client] = lambda: fake
+    yield fake
+    app.dependency_overrides.pop(get_client, None)
