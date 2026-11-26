@@ -2,16 +2,19 @@
 
 ## 这是什么
 
-一个基于 FastAPI 的任务清单（Todo）后端：JWT 登录、异步 SQLAlchemy、统一异常处理、完整的测试。
+一个基于 FastAPI 的任务清单（Todo）后端：JWT 登录、异步 SQLAlchemy、统一异常处理、
+Redis 缓存、完整的测试与 CI，**一条命令即可在容器里跑起来**。
 
 在参考脚手架上，我实现了这些功能：
 
-- **任务统计**：`GET /todos/stats`，用聚合查询（`count` + 条件 `sum`）一次算出总数/完成数/完成率
+- **任务统计**：`GET /todos/stats`，用聚合查询（`count` + 条件 `sum`）一次算出总数/完成数/完成率，并加 30 秒 Redis 缓存
 - **标签功能**：任务与标签多对多，支持创建/查询标签、创建任务时关联标签
 - **批量创建**：`POST /todos/bulk`，提供“原子”和“部分成功”两种事务模式
 - **错误契约测试**：覆盖 4 类异常（业务/校验/HTTP/兜底），锁住统一错误格式
+- **缓存降级**：Redis 不可用时自动查库，不返回 500
+- **CI**：GitHub Actions 跑 ruff + 61 个测试
 
-当前：**56 个测试全绿，覆盖率 92%**。
+当前：**61 个测试全绿，覆盖率 93%**。
 
 ## 技术栈
 
@@ -20,12 +23,45 @@
 | Web 框架 | FastAPI 0.115+（ASGI） |
 | 校验 / 序列化 | Pydantic v2 + pydantic-settings |
 | ORM | SQLAlchemy 2.0（async）+ Alembic |
-| 数据库 | SQLite（开发）/ 可切 PostgreSQL（`DATABASE_URL`） |
+| 数据库 | **PostgreSQL 16**（容器）/ SQLite（本地开发） |
+| 缓存 | **Redis 7**（容器），`redis.asyncio` + 连接池 |
 | 认证 | JWT（access + refresh），`OAuth2PasswordBearer` |
-| 测试 | pytest + pytest-asyncio + httpx.AsyncClient + pytest-cov |
-| 工具 | uv（依赖）、ruff（lint/format） |
+| 测试 | pytest + pytest-asyncio + httpx.AsyncClient + pytest-cov（Redis 用 `fakeredis`） |
+| 容器 | Docker 多阶段构建 + Docker Compose |
+| 工具 | uv（依赖）、ruff（lint/format）、GitHub Actions（CI） |
 
 ## 快速开始
+
+### 方式一：Docker（推荐，一条命令起全套）
+
+```powershell
+# 1. 起 app + PostgreSQL + Redis（首次会拉镜像，约 1~2 分钟）
+docker compose up -d --build
+
+# 2. 等健康检查通过（约 15 秒）
+docker compose ps
+#   期望：db / redis / api 三个都是 (healthy)
+
+# 3. 打开接口文档
+#   http://localhost:8000/docs
+```
+
+容器启动时会**自动执行数据库迁移**（`alembic upgrade head`），无需手动建表。
+
+**验一下能不能用**：
+
+```powershell
+# 注册
+$body = @{ username='demo'; email='demo@example.com'; password='S3cret-pass123' } | ConvertTo-Json
+Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/v1/auth/register' -Method Post -Body $body -ContentType 'application/json'
+
+# 登录拿 token
+$login = Invoke-RestMethod -Uri 'http://127.0.0.1:8000/api/v1/auth/login' `
+    -Method Post -Body @{ username='demo'; password='S3cret-pass123' }
+$login.access_token
+```
+
+### 方式二：本地开发（SQLite，不需要 Docker）
 
 ```powershell
 uv sync
@@ -49,7 +85,7 @@ uv run uvicorn app.main:app --reload
 | GET | `/api/v1/todos/{id}` | 任务详情 | 是 |
 | PATCH | `/api/v1/todos/{id}` | 局部更新 | 是 |
 | DELETE | `/api/v1/todos/{id}` | 删除 | 是 |
-| GET | `/api/v1/todos/stats` | 任务统计 | 是 |
+| GET | `/api/v1/todos/stats` | 任务统计（Redis 缓存 30s） | 是 |
 | POST | `/api/v1/todos/bulk` | 批量创建（`atomic` 控制事务模式） | 是 |
 | POST | `/api/v1/tags` | 创建标签 | 是 |
 | GET | `/api/v1/tags` | 我的标签 | 是 |
@@ -91,11 +127,40 @@ uv run uvicorn app.main:app --reload
 
 如果用 403 说“无权访问”，攻击者就能靠 403/404 的差异探测“这个 id 是否存在”（资源枚举）。统一返回 404，让“不存在”和“不是你的”看起来完全一样。
 
+**缓存的读写策略？**
+
+cache-aside：读先查缓存、未命中查库回填；写只删缓存不更新（缓存值可能是聚合结果，删了下次读自然重建）。
+**Redis 挂掉时接口不会 500**——捕获 `RedisError` 后直接查库（降级），日志打 warning。
+
+**为什么 Redis 超时设 0.5 秒？**
+
+实测过：超时 2 秒时，Redis 挂掉后单请求要 2009ms；改成 0.5 秒后降到 535ms。
+缓存是“加速器”，不能反过来拖慢主流程。
+
+## 运维
+
+```powershell
+docker compose ps                    # 三个服务的健康状态
+docker compose logs -f api           # 跟日志（含 request_id，可串联一次请求）
+docker compose exec db psql -U postgres -d app -c "\dt"   # 看表
+docker compose down                  # 停止（保留数据卷）
+docker compose down -v               # 停止并删除数据（危险）
+```
+
+**从零重建**（验证部署是否完整）：
+
+```powershell
+docker compose down -v
+docker compose up -d
+# 期望：迁移自动执行、5 张表建好、可以直接注册用户
+```
+
 ## 开发
 
 ```powershell
-uv run pytest -q                                    # 跑测试
+uv run pytest -q                                    # 跑测试（61 个）
 uv run pytest --cov=app --cov-report=term-missing   # 看覆盖率
 uv run ruff check app tests                         # lint
 uv run ruff format app tests                        # 格式化
+uv run python scripts/bench_api.py --token <TOKEN> --n 300 --concurrency 30   # 压测
 ```
