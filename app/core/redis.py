@@ -29,9 +29,10 @@ def get_client() -> Redis:
             settings.redis_url,
             # decode_responses=True：get 直接返回 str，不用每次 .decode()
             decode_responses=True,
-            # 两个超时都必须设：否则 Redis 卡住时请求会一直挂着
-            socket_connect_timeout=2,
-            socket_timeout=2,
+            # ⚠️ 超时要短：缓存是"加速器"，不能让它拖慢主流程。
+            # 0.5 秒拿不到就降级查库 —— 2 秒会让单请求慢 4 倍，并发下更致命。
+            socket_connect_timeout=0.5,
+            socket_timeout=0.5,
             health_check_interval=30,
         )
     return _client
