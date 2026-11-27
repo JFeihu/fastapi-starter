@@ -40,6 +40,12 @@ Redis 缓存、完整的测试与 CI，**一条命令即可在容器里跑起来
 | 容器 | Docker 多阶段构建 + Docker Compose |
 | 工具 | uv（依赖）、ruff（lint/format）、GitHub Actions（CI） |
 
+## 截图
+
+| 接口文档（14 个接口，分组带中文说明） | 容器三服务健康 | 压测输出 |
+| --- | --- | --- |
+| ![Swagger](docs/images/swagger.png) | ![compose ps](docs/images/compose-ps.png) | ![bench](docs/images/bench.png) |
+
 ## 快速开始
 
 ### 方式一：Docker（推荐，一条命令起全套）
